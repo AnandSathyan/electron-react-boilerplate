@@ -22,6 +22,13 @@ const electronHandler = {
       ipcRenderer.once(channel, (_event, ...args) => func(...args));
     },
   },
+  
+  // Add device ID API
+  device: {
+    async getDeviceId(): Promise<string> {
+      return ipcRenderer.invoke('get-device-id');
+    },
+  },
 };
 
 contextBridge.exposeInMainWorld('electron', electronHandler);

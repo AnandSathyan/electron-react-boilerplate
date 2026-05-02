@@ -1,4 +1,4 @@
-/* eslint global-require: off, no-console: off, promise/always-return: off */
+/* eslint global-require: off, no-console: off, promise/always-request: off */
 
 /**
  * This module executes inside of electron's main process. You can start
@@ -25,10 +25,49 @@ class AppUpdater {
 
 let mainWindow: BrowserWindow | null = null;
 
+// IPC Handlers
 ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
+});
+
+// Add device ID handler
+ipcMain.handle('get-device-id', async () => {
+  try {
+    // Method 1: Try to use Electron's built-in device ID (if available)
+    if (app.getDeviceId) {
+      const deviceId = app.getDeviceId();
+      if (deviceId) {
+        console.log('Using native device ID:', deviceId);
+        return deviceId;
+      }
+    }
+    
+    // Method 2: Generate and store a persistent device ID
+    const Store = require('electron-store');
+    const store = new Store();
+    
+    let deviceId = store.get('deviceId');
+    
+    if (!deviceId) {
+      // Generate a unique device ID
+      const crypto = require('crypto');
+      deviceId = crypto.randomUUID();
+      store.set('deviceId', deviceId);
+      console.log('Generated new device ID:', deviceId);
+    } else {
+      console.log('Using stored device ID:', deviceId);
+    }
+    
+    return deviceId;
+  } catch (error) {
+    console.error('Error getting device ID:', error);
+    
+    // Method 3: Final fallback
+    const crypto = require('crypto');
+    return crypto.randomUUID();
+  }
 });
 
 if (process.env.NODE_ENV === 'production') {
@@ -78,6 +117,9 @@ const createWindow = async () => {
       preload: app.isPackaged
         ? path.join(__dirname, 'preload.js')
         : path.join(__dirname, '../../.erb/dll/preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      enableRemoteModule: false,
     },
   });
 
